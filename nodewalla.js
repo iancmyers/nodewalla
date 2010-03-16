@@ -6,60 +6,85 @@ function Nodewalla() {
   this.BASE_URL = "api.gowalla.com";
   this.POOL_SIZE = 5;
   this.REQUEST_HEADERS = {
-    "Host" : "api.gowalla.com",
+    "Host" : this.BASE_URL,
     "Accept" : "application/json",
     "X-Gowalla-API-Key" : this.API_KEY
   }
   
   this.pool = [];
   this.busy = [];
+  this.queue = [];
 }
 
 Nodewalla.prototype = {
-  user : function(username) {
-    this.fetchData('/users/' + username);
+  user : function(username, callback) {
+    this.fetchData('/users/' + username, callback);
   },
   
-  fetchData : function(path) {
-    var client = this.getClient();
-    var index = client[1];
-    var gowalla = client[0];
-    var self = this;
-    sys.puts(this.BASE_URL + path);
-    var request = gowalla.request("GET", path, this.REQUEST_HEADERS);
-    
-    request.addListener('response', function(response) {
-      response.setBodyEncoding("utf8");
-      response.addListener("data", function (chunk) {
-        sys.puts("BODY: " + chunk);
-      });
+  fetchData : function(path, callback) {
+    this.getClient(function(spot) {
+      var gowalla = this.busy[spot];
+      var request = gowalla.request("GET", path, this.REQUEST_HEADERS);
+      var data = '';
       
-      response.addListener("end", function() {
-        self.busy.splice(index,1);
-        self.pool.push(gowalla);
+      var self = this
+      request.addListener('response', function(response) {
+        response.setBodyEncoding("utf8");
+        response.addListener("data", function (chunk) {
+          data += chunk;
+        });
+
+        response.addListener("end", function() {
+          callback.call(self, JSON.parse(data));
+          var free = self.busy.splice(spot, 1);
+          self.pool.push(free);
+        });
       });
+      request.close();
     });
-    request.close();
   },
   
-  getClient : function() {
-    var client = false;
-    
+  getClient : function(callback) {
+    if(!this.queue.length) {
+      var client = findAvailableClient();
+            
+      if(client) {
+        this.busy.push(client);
+        callback.call(this, this.busy.length - 1);
+      } else {
+        this.queue.push(callback);
+        setTimeout(this.serviceQueue,20);
+      }
+    } else {
+      this.queue.push(callback);
+    }
+  },
+  
+  findAvailableClient : function() {
+    var client = null;
     if(this.pool.length) {
       client = this.pool.splice(0,1);
     } else if(!this.pool.length && this.busy.length < this.POOL_SIZE) {
       client = http.createClient(80, this.BASE_URL);
     }
-    
-    if(client) {
+    return client;
+  },
+  
+  serviceQueue : function() {
+    if(this.pool.length) {
+      var callback = this.queue.splice(0,1);
+      var client = this.pool.splice(0,1);
       this.busy.push(client);
-      var index = this.busy.length - 1;
-      return [this.busy[index], index];
-    } else {
-      return this.getClient();
+      callback.call(this, this.busy.length - 1);
+    }
+    
+    if(this.queue.length) {
+      setTimeout(this.serviceQueue,20);
     }
   }
 }
 
 var go = new Nodewalla();
-go.user('iancmyers');
+go.user('iancmyers', function(user) {
+  sys.puts(JSON.stringify(user));
+});
