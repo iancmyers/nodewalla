@@ -69,13 +69,11 @@ Nodewalla.prototype = {
   fetchData : function(path, callback) {
     this.getClient(function(spot) {
       var gowalla = this.busy[spot];
-      sys.puts("REQUEST: " + this.baseURL + path);
       var request = gowalla.request("GET", path, this.requestHeaders);
       var data = '';
       
       var self = this
       request.addListener('response', function(response) {
-        sys.puts("HEADERS: " + JSON.stringify(response.headers));
         response.setBodyEncoding("utf8");
         response.addListener("data", function (chunk) {
           data += chunk;
@@ -85,6 +83,10 @@ Nodewalla.prototype = {
           callback.call(self, JSON.parse(data));
           var free = self.busy.splice(spot, 1);
           self.pool.push(free);
+          
+          if(self.queue.length) {
+            self.serviceQueue()
+          }
         });
       });
       request.close();
@@ -100,7 +102,6 @@ Nodewalla.prototype = {
         callback.call(this, this.busy.length - 1);
       } else {
         this.queue.push(callback);
-        setTimeout(this.serviceQueue,20);
       }
     } else {
       this.queue.push(callback);
@@ -124,14 +125,38 @@ Nodewalla.prototype = {
       this.busy.push(client);
       callback.call(this, this.busy.length - 1);
     }
-    
-    if(this.queue.length) {
-      setTimeout(this.serviceQueue,20);
-    }
   },
   
   setUser : function(username, password) {
-    this.pool = [];
-    this.baseURL = username + ':' + password + '@api.gowalla.com';
+    this.requestHeaders.Authorization = "Basic " + this.encode(username + ':' + password);
+  },
+  
+  encode : function (input) {
+    var output = "";
+    var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
+    var i = 0;
+    var keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+
+    while (i < input.length) {
+      chr1 = input.charCodeAt(i++);
+      chr2 = input.charCodeAt(i++);
+      chr3 = input.charCodeAt(i++);
+
+      enc1 = chr1 >> 2;
+      enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+      enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+      enc4 = chr3 & 63;
+
+      if (isNaN(chr2)) {
+        enc3 = enc4 = 64;
+      } else if (isNaN(chr3)) {
+        enc4 = 64;
+      }
+
+      output = output +
+      keyStr.charAt(enc1) + keyStr.charAt(enc2) +
+      keyStr.charAt(enc3) + keyStr.charAt(enc4);
+    }
+    return output;
   }
 }
