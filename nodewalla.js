@@ -26,7 +26,7 @@ Nodewalla.prototype = {
     var gowalla = client[0];
     var self = this;
     sys.puts(this.BASE_URL + path);
-    var request = gowalla.request("GET", this.BASE_URL + path, this.REQUEST_HEADERS);
+    var request = gowalla.request("GET", path, this.REQUEST_HEADERS);
     
     request.addListener('response', function(response) {
       response.setBodyEncoding("utf8");
