@@ -3,17 +3,17 @@ var sys = require("sys"),
 
 function Nodewalla() {
   this.API_KEY = "c1649bce48e4487ebd7b5f3fdb098778";
-  this.BASE_URL = "api.gowalla.com";
   this.POOL_SIZE = 5;
-  this.REQUEST_HEADERS = {
-    "Host" : this.BASE_URL,
-    "Accept" : "application/json",
-    "X-Gowalla-API-Key" : this.API_KEY
-  }
   
+  this.baseURL = "api.gowalla.com";  
   this.pool = [];
   this.busy = [];
   this.queue = [];
+  this.requestHeaders = {
+    "Host" : "api.gowalla.com",
+    "Accept" : "application/json",
+    "X-Gowalla-API-Key" : this.API_KEY
+  }
 }
 
 Nodewalla.prototype = {
@@ -21,14 +21,61 @@ Nodewalla.prototype = {
     this.fetchData('/users/' + username, callback);
   },
   
+  stamps : function(username, callback, limit) {
+    if(!limit) limit = 20;
+    this.fetchData('/users/' + username + '/stamps?limit=' + limit, callback);
+  },
+  
+  topSpots : function(username, callback) {
+    this.fetchData('/users/' + username + '/top_spots', callback);
+  },
+  
+  list : function(lat, lng, radius, callback) {
+    this.fetchData('/spots?lat=' + lat + '&lng=' + lng + '&radius=' + radius, callback);
+  },
+  
+  spot : function(id, callback) {
+    this.fetchData('/spots/' + id, callback);
+  },
+  
+  events : function(id, callback) {
+    this.fetchData('/spots/' + id + '/events', callback);
+  },
+  
+  items : function(id, callback) {
+    this.fetchData('/spots/' + id + '/items', callback);
+  },
+  
+  categories : function(callback) {
+    this.fetchData('/categories', callback);
+  },
+  
+  category : function(id, callback) {
+    this.fetchData('/categories/' + id, callback);
+  },
+  
+  item : function(id, callback) {
+    this.fetchData('/items/' + id, callback);
+  },
+  
+  trips : function(callback) {
+    this.fetchData('/trips', callback);
+  },
+  
+  trip : function(id, callback) {
+    this.fetchData('/trips/' + id, callback);
+  },
+  
   fetchData : function(path, callback) {
     this.getClient(function(spot) {
       var gowalla = this.busy[spot];
-      var request = gowalla.request("GET", path, this.REQUEST_HEADERS);
+      sys.puts("REQUEST: " + this.baseURL + path);
+      var request = gowalla.request("GET", path, this.requestHeaders);
       var data = '';
       
       var self = this
       request.addListener('response', function(response) {
+        sys.puts("HEADERS: " + JSON.stringify(response.headers));
         response.setBodyEncoding("utf8");
         response.addListener("data", function (chunk) {
           data += chunk;
@@ -46,7 +93,7 @@ Nodewalla.prototype = {
   
   getClient : function(callback) {
     if(!this.queue.length) {
-      var client = findAvailableClient();
+      var client = this.findAvailableClient();
             
       if(client) {
         this.busy.push(client);
@@ -65,7 +112,7 @@ Nodewalla.prototype = {
     if(this.pool.length) {
       client = this.pool.splice(0,1);
     } else if(!this.pool.length && this.busy.length < this.POOL_SIZE) {
-      client = http.createClient(80, this.BASE_URL);
+      client = http.createClient(80, this.baseURL);
     }
     return client;
   },
@@ -81,10 +128,10 @@ Nodewalla.prototype = {
     if(this.queue.length) {
       setTimeout(this.serviceQueue,20);
     }
+  },
+  
+  setUser : function(username, password) {
+    this.pool = [];
+    this.baseURL = username + ':' + password + '@api.gowalla.com';
   }
 }
-
-var go = new Nodewalla();
-go.user('iancmyers', function(user) {
-  sys.puts(JSON.stringify(user));
-});
