@@ -4,7 +4,7 @@ module.exports = Nodewalla;
 
 function Nodewalla() {
   this.API_KEY = "c1649bce48e4487ebd7b5f3fdb098778";
-  this.POOL_SIZE = 5;
+  this.POOL_SIZE = 5; // Number of simultaneous HTTP requests.
   
   this.baseURL = "api.gowalla.com";  
   this.pool = [];
@@ -52,54 +52,152 @@ Nodewalla.prototype = {
    *
    * @public
    * @param {String} username The Gowalla username.
-   * @param {Function} callback Then function to be called when the spots are
-   *        retrieved. It should take one arguement, which will be the spots
+   * @param {Function} callback The function to be called when the spots are
+   *        retrieved. It should take one argument, which will be the spots
    *        object.
    */
   topSpots : function(username, callback) {
     this.fetchData('/users/' + username + '/top_spots', callback);
   },
   
+  /**
+   * Fetches the spot in a given radius of a given latitude and longitude.
+   *
+   * @public
+   * @param {String} lat The latitude of the location.
+   * @param {String} lng The longitude of the location.
+   * @param {String} radius The radius from the location you'd like to include.
+   * @param {Function} callback The function to be called when the spots are
+   *        retrieved. It should take one argument, which will be the spots
+   *        object.
+   */
   list : function(lat, lng, radius, callback) {
     this.fetchData('/spots?lat=' + lat + '&lng=' + lng + '&radius=' + radius, callback);
   },
   
+  /**
+   * Fetches the information for a specific spot.
+   *
+   * @public
+   * @param {String} id The ID of the spot.
+   * @param {Function} callback The function to be called when the spot is
+   *        retrieved. It should take one argument, which will be the spot
+   *        object.
+   */
   spot : function(id, callback) {
     this.fetchData('/spots/' + id, callback);
   },
   
+  /**
+   * Fetches the events for a given spot.
+   *
+   * @public
+   * @param {String} id The ID of the spot.
+   * @param {Function} callback The function to be called when the events are
+   *        retrieved. It should take one argument, which will be the events
+   *        object.
+   */
   events : function(id, callback) {
     this.fetchData('/spots/' + id + '/events', callback);
   },
   
+  /**
+   * Fetches the items that are at a given spot.
+   *
+   * @public
+   * @param {String} id The ID of the spot.
+   * @param {Function} callback The function to be called when the items are
+   *        retrieved. It should take one argument, which will be the items
+   *        object.
+   */
   items : function(id, callback) {
     this.fetchData('/spots/' + id + '/items', callback);
   },
   
+  /**
+   * Fetches the information for all of the Gowalla categories.
+   *
+   * @public
+   * @param {Function} callback The function to be called when the categories
+   *        are retrieved. It should take one argument, which will be the 
+   *        categories object.
+   */
   categories : function(callback) {
     this.fetchData('/categories', callback);
   },
   
+  /**
+   * Fetches the information for a given category.
+   *
+   * @public
+   * @param {String} id The ID of the category.
+   * @param {Function} callback The function to be called when the category is
+   *        retrieved. It should take one argument, which will be the category
+   *        object.
+   */  
   category : function(id, callback) {
     this.fetchData('/categories/' + id, callback);
   },
   
+  /**
+   * Fetches the information for a given item.
+   *
+   * @public
+   * @param {String} id The ID of the item.
+   * @param {Function} callback The function to be called when the item is
+   *        retrieved. It should take one argument, which will be the item
+   *        object.
+   */
   item : function(id, callback) {
     this.fetchData('/items/' + id, callback);
   },
   
+  /**
+   * Fetches a list of trips.
+   *
+   * @public
+   * @param {Function} callback The function to be called when the trips are
+   *        retrieved. It should take one argument, which will be the trips
+   *        object.
+   */
   trips : function(callback) {
     this.fetchData('/trips', callback);
   },
   
+  /**
+   * Fetches the information for a given trip.
+   * 
+   * @public
+   * @param {String} id The ID of the trip.
+   * @param {Function} callback The function to be called when the trip is
+   *        retrieved. It should take one argument, which will be the trip
+   *        object.
+   */
   trip : function(id, callback) {
     this.fetchData('/trips/' + id, callback);
   },
   
+  /**
+   * Sets the user to be authenticated on each API request.
+   *
+   * @public
+   * @param {String} username The username of the user.
+   * @param {String} password The password of the user.
+   */
   setUser : function(username, password) {
     this.requestHeaders.Authorization = "Basic " + this.encode(username + ':' + password);
   },
   
+  /**
+   * Fetches the data from Gowalla and fires the callback function. If there
+   * are requests in the queue after the callback is fired, queue servicing
+   * is initiated.
+   *
+   * @private
+   * @param {String} path The path for the API call.
+   * @param {function} callback The callback to be fired when the data is
+   *        received.
+   */
   fetchData : function(path, callback) {
     this.getClient(function(spot) {
       var gowalla = this.busy[spot];
@@ -126,6 +224,14 @@ Nodewalla.prototype = {
     });
   },
   
+  /**
+   * Gets an HTTP client for the request or, if one is unavailable the callback
+   * is pushed onto the queue.
+   *
+   * @private
+   * @param {Function} callback The function that will add the request to the 
+   *        client once the client is ready.
+   */
   getClient : function(callback) {
     if(!this.queue.length) {
       var client = this.findAvailableClient();
@@ -141,6 +247,13 @@ Nodewalla.prototype = {
     }
   },
   
+  /**
+   * Attempts to find an available client.
+   *
+   * @private
+   * @returns {Object | null} The client object or null, if no clients are
+   *        available.
+   */
   findAvailableClient : function() {
     var client = null;
     if(this.pool.length) {
@@ -151,8 +264,28 @@ Nodewalla.prototype = {
     return client;
   },
   
+  /**
+   * Grabs the next available client and pops a getClient callback off of the
+   * queue and fires the callback.
+   *
+   * @private
+   */
   serviceQueue : function() {
+    if(this.pool.length) {
+      var callback = this.queue.splice(0,1)[0];
+      var client = this.pool.splice(0,1)[0];
+      this.busy.push(client);
+      callback.call(this, this.busy.length - 1);
+    }
+  },
   
+  /**
+   * Base64 encodes a string.
+   *
+   * @private
+   * @param {String} input The string to be encoded.
+   * @returns {String} The encoded string.
+   */
   encode : function (input) {
     var output = "";
     var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
