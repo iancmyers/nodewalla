@@ -18,15 +18,44 @@ function Nodewalla() {
 };
 
 Nodewalla.prototype = {
+  /**
+   * Fetches the information for a given user.
+   *
+   * @public
+   * @param {String} username The Gowalla username.
+   * @param {Function} callback The function to be called when the user
+   *        information is retrieved. It should take one argument, which will
+   *        be the user information object.
+   */
   user : function(username, callback) {
     this.fetchData('/users/' + username, callback);
   },
   
+  /**
+   * Fetches the stamps for a given user, in order of recently visited.
+   *
+   * @public
+   * @param {String} username The Gowalla username.
+   * @param {Function} callback The function to be called when the stamps are
+   *        retrieved. It should take one argument, which will be the stamps
+   *        object.
+   * @param {Number} limit The number of stamps to return. Limit will default
+   *        to 20 if it is undefined.
+   */
   stamps : function(username, callback, limit) {
     if(!limit) limit = 20;
     this.fetchData('/users/' + username + '/stamps?limit=' + limit, callback);
   },
   
+  /**
+   * Fetches the 10 spots a user most frequently checks in to.
+   *
+   * @public
+   * @param {String} username The Gowalla username.
+   * @param {Function} callback Then function to be called when the spots are
+   *        retrieved. It should take one arguement, which will be the spots
+   *        object.
+   */
   topSpots : function(username, callback) {
     this.fetchData('/users/' + username + '/top_spots', callback);
   },
@@ -65,6 +94,10 @@ Nodewalla.prototype = {
   
   trip : function(id, callback) {
     this.fetchData('/trips/' + id, callback);
+  },
+  
+  setUser : function(username, password) {
+    this.requestHeaders.Authorization = "Basic " + this.encode(username + ':' + password);
   },
   
   fetchData : function(path, callback) {
@@ -119,17 +152,6 @@ Nodewalla.prototype = {
   },
   
   serviceQueue : function() {
-    if(this.pool.length) {
-      var callback = this.queue.splice(0,1)[0];
-      var client = this.pool.splice(0,1)[0];
-      this.busy.push(client);
-      callback.call(this, this.busy.length - 1);
-    }
-  },
-  
-  setUser : function(username, password) {
-    this.requestHeaders.Authorization = "Basic " + this.encode(username + ':' + password);
-  },
   
   encode : function (input) {
     var output = "";
