@@ -1,5 +1,6 @@
-var sys = require("sys"),
-  http = require("http");
+var http = require("http");
+
+module.exports = Nodewalla;
 
 function Nodewalla() {
   this.API_KEY = "c1649bce48e4487ebd7b5f3fdb098778";
@@ -14,7 +15,7 @@ function Nodewalla() {
     "Accept" : "application/json",
     "X-Gowalla-API-Key" : this.API_KEY
   }
-}
+};
 
 Nodewalla.prototype = {
   user : function(username, callback) {
@@ -81,11 +82,10 @@ Nodewalla.prototype = {
 
         response.addListener("end", function() {
           callback.call(self, JSON.parse(data));
-          var free = self.busy.splice(spot, 1);
-          self.pool.push(free);
+          self.pool.push(self.busy.splice(spot, 1)[0]);
           
           if(self.queue.length) {
-            self.serviceQueue()
+            self.serviceQueue();
           }
         });
       });
@@ -111,7 +111,7 @@ Nodewalla.prototype = {
   findAvailableClient : function() {
     var client = null;
     if(this.pool.length) {
-      client = this.pool.splice(0,1);
+      client = this.pool.splice(0,1)[0];
     } else if(!this.pool.length && this.busy.length < this.POOL_SIZE) {
       client = http.createClient(80, this.baseURL);
     }
@@ -120,8 +120,8 @@ Nodewalla.prototype = {
   
   serviceQueue : function() {
     if(this.pool.length) {
-      var callback = this.queue.splice(0,1);
-      var client = this.pool.splice(0,1);
+      var callback = this.queue.splice(0,1)[0];
+      var client = this.pool.splice(0,1)[0];
       this.busy.push(client);
       callback.call(this, this.busy.length - 1);
     }
@@ -159,4 +159,4 @@ Nodewalla.prototype = {
     }
     return output;
   }
-}
+};
