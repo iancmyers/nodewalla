@@ -6,7 +6,7 @@ Nodewalla is a simple library, written in Node.js, for interacting with the Gowa
 Example
 -------
 
-The example below shows the user with the most check-ins at a given user's top 10 spots.
+The example below shows which user has the most check-ins at each of a given user's top spots.
 
     var sys = require('sys');
     var Nodewalla = require("./nodewalla");
