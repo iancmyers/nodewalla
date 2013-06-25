@@ -1,3 +1,5 @@
+**Please Note:** Gowalla is now, unfortunately, defunct and this was written for a very old version of NodeJS. I'm leaving this repository up for posterity and nostalgia.
+
 Nodewalla
 =========
 
